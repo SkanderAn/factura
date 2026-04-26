@@ -2,6 +2,8 @@ from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Enu
 from sqlalchemy.sql import func
 import enum
 from app.database import Base
+from sqlalchemy.orm import relationship
+from app.models.invoice_line import InvoiceLine
 
 class InvoiceStatus(str, enum.Enum):
     DRAFT = "brouillon"
@@ -26,3 +28,4 @@ class Invoice(Base):
     status = Column(Enum(InvoiceStatus), default=InvoiceStatus.DRAFT)
     notes = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    items = relationship("InvoiceLine", backref="invoice", cascade="all, delete-orphan")
