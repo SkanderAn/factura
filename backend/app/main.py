@@ -3,7 +3,7 @@ from app.database import engine, Base
 from app.routers import auth 
 from sqlalchemy import text
 from app.models import user  
-from app.routers import auth, clients, invoices, dashboard
+from app.routers import auth, clients, invoices, dashboard, quotes
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -27,6 +27,7 @@ app.include_router(auth.router)
 app.include_router(clients.router)
 app.include_router(invoices.router)
 app.include_router(dashboard.router)
+app.include_router(quotes.router)
 
 @app.get("/")
 def root():
