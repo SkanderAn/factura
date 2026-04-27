@@ -9,7 +9,7 @@ from app.models.client import Client
 from app.routers.auth import get_current_user
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate, InvoiceResponse
 from fastapi.responses import Response
-
+from app.services.pdf_generator import generate_invoice_pdf
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -33,12 +33,12 @@ def create_invoice(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    
+    # Vérifier que le client appartient bien à l'utilisateur
     client = db.query(Client).filter(Client.id == invoice_data.client_id, Client.user_id == current_user.id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
-        # Calculer les totaux
+    # Calculer les totaux
     subtotal, tax_amount, total = calculate_totals(invoice_data.items, invoice_data.tax_rate)
     
     # Créer la facture
@@ -137,7 +137,7 @@ def generate_pdf(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    
+    # Récupérer la facture avec ses lignes
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == current_user.id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
