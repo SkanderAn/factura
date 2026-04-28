@@ -33,5 +33,5 @@ Factura est une application SaaS permettant aux freelances, consultants et PME d
 
 ### 1. Cloner le dépôt
 ```bash
-git clone https://github.com/votre-utilisateur/factura.git
+git clone https://github.com/SkanderAn/factura.git
 cd factura
