@@ -1,51 +1,48 @@
-"use client";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
+import { Toaster } from 'sonner';
+import { AuthProvider } from '@/lib/auth-context';
+import './globals.css';
 
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import Sidebar from "@/components/Sidebar";
-import "./globals.css";
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+
+export const metadata: Metadata = {
+  title: 'Factura - Facturation simplifiee pour les entrepreneurs',
+  description: 'Plateforme de facturation et de gestion de devis destinee aux entrepreneurs du Maghreb et du Moyen-Orient',
+  generator: 'v0.app',
+  icons: {
+    icon: [
+      {
+        url: '/icon-light-32x32.png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32x32.png',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+    apple: '/apple-icon.png',
+  },
+};
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    const isLoginPage = pathname === "/login";
-    
-    if (!token && !isLoginPage) {
-      router.push("/login");
-      setLoading(false);
-    } else if (token) {
-      setIsAuthenticated(true);
-      setLoading(false);
-    } else {
-      setLoading(false);
-    }
-  }, [pathname, router]);
-
-  if (loading) return <div className="p-8">Chargement...</div>;
-
-  const isPublicPage = pathname === "/login";
-  const showSidebar = isAuthenticated && !isPublicPage;
-
+}>) {
   return (
-    <html lang="fr">
-      <body className="bg-gray-100">
-        {showSidebar ? (
-          <div className="flex">
-            <Sidebar />
-            <main className="flex-1 p-6">{children}</main>
-          </div>
-        ) : (
-          children
-        )}
+    <html lang="fr" className="bg-background">
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+        <Toaster richColors position="top-right" />
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   );

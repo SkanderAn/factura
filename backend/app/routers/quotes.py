@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timedelta
@@ -103,9 +103,7 @@ def update_quote(
         raise HTTPException(status_code=404, detail="Quote not found")
     
     if update_data.status is not None:
-        # Convertit la chaîne (ex: "accepté") en enum QuoteStatus
         try:
-            # Si c'est déjà un QuoteStatus, on le garde ; sinon on le convertit
             if isinstance(update_data.status, QuoteStatus):
                 quote.status = update_data.status
             else:
@@ -113,6 +111,24 @@ def update_quote(
         except ValueError:
             raise HTTPException(status_code=400, detail="Statut invalide. Valeurs possibles : brouillon, envoyé, accepté, refusé, converti")
     
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+@router.patch("/{quote_id}/status", response_model=QuoteResponse)
+def update_quote_status(
+    quote_id: int,
+    status: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    quote = db.query(Quote).filter(Quote.id == quote_id, Quote.user_id == current_user.id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    try:
+        quote.status = QuoteStatus(status)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Statut invalide. Valeurs possibles : brouillon, envoyé, accepté, refusé, converti")
     db.commit()
     db.refresh(quote)
     return quote
@@ -127,20 +143,17 @@ def convert_quote_to_invoice(
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
     
-    # Optionnel : décommentez la ligne ci-dessous pour n'autoriser que les devis acceptés
+    # Optionnel : décommentez pour n'autoriser que les devis acceptés
     # if quote.status != QuoteStatus.ACCEPTED:
     #     raise HTTPException(status_code=400, detail="Seul un devis accepté peut être converti")
     
-    # Générer numéro de facture (import déjà présent en haut)
     invoice_number = generate_invoice_number(db)
-    
-    # Créer la facture
     new_invoice = Invoice(
         invoice_number=invoice_number,
         user_id=current_user.id,
         client_id=quote.client_id,
         issue_date=datetime.now(),
-        due_date=datetime.now().replace(day=28) + timedelta(days=30),  # échéance approximative
+        due_date=datetime.now().replace(day=28) + timedelta(days=30),
         currency=quote.currency,
         subtotal_ht=quote.subtotal_ht,
         tax_rate=quote.tax_rate,
@@ -152,7 +165,6 @@ def convert_quote_to_invoice(
     db.add(new_invoice)
     db.flush()
     
-    # Copier les lignes
     for item in quote.items:
         line = InvoiceLine(
             invoice_id=new_invoice.id,
@@ -163,10 +175,7 @@ def convert_quote_to_invoice(
         )
         db.add(line)
     
-    # Marquer le devis comme converti
     quote.status = QuoteStatus.CONVERTED
-    
     db.commit()
     db.refresh(new_invoice)
-    
     return {"message": "Devis converti", "invoice_id": new_invoice.id, "invoice_number": new_invoice.invoice_number}

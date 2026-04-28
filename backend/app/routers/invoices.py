@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
@@ -14,9 +14,7 @@ from app.services.pdf_generator import generate_invoice_pdf
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
 def generate_invoice_number(db: Session) -> str:
-    """Génère un numéro de facture unique du type F-2026-0001"""
     year = datetime.now().year
-    # Compter les factures de l'année en cours
     count = db.query(Invoice).filter(Invoice.invoice_number.startswith(f"F-{year}-")).count()
     next_num = count + 1
     return f"F-{year}-{next_num:04d}"
@@ -33,15 +31,11 @@ def create_invoice(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    # Vérifier que le client appartient bien à l'utilisateur
     client = db.query(Client).filter(Client.id == invoice_data.client_id, Client.user_id == current_user.id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
-    # Calculer les totaux
     subtotal, tax_amount, total = calculate_totals(invoice_data.items, invoice_data.tax_rate)
-    
-    # Créer la facture
     invoice_number = generate_invoice_number(db)
     new_invoice = Invoice(
         invoice_number=invoice_number,
@@ -58,9 +52,8 @@ def create_invoice(
         notes=invoice_data.notes
     )
     db.add(new_invoice)
-    db.flush()  # pour obtenir l'id de la facture avant d'ajouter les lignes
+    db.flush()
     
-    # Ajouter les lignes de facture
     for item in invoice_data.items:
         line = InvoiceLine(
             invoice_id=new_invoice.id,
@@ -73,8 +66,6 @@ def create_invoice(
     
     db.commit()
     db.refresh(new_invoice)
-    
-    # Recharger les items pour la réponse
     return new_invoice
 
 @router.get("/", response_model=List[InvoiceResponse])
@@ -118,6 +109,24 @@ def update_invoice(
     db.refresh(invoice)
     return invoice
 
+@router.patch("/{invoice_id}/status", response_model=InvoiceResponse)
+def update_invoice_status(
+    invoice_id: int,
+    status: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == current_user.id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    try:
+        invoice.status = InvoiceStatus(status)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Statut invalide. Valeurs possibles : brouillon, envoyée, payée, impayée")
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
 @router.delete("/{invoice_id}")
 def delete_invoice(
     invoice_id: int,
@@ -137,25 +146,18 @@ def generate_pdf(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    # Récupérer la facture avec ses lignes
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == current_user.id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    
-    # Récupérer le client
     client = db.query(Client).filter(Client.id == invoice.client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
-    # Infos société (à rendre dynamique plus tard via un modèle Company)
     company_info = {
         "name": "Factura Demo",
         "address": "Tunis, Tunisie",
         "tax_id": "1234567X/A/M/000"
     }
-    
     pdf_bytes = generate_invoice_pdf(invoice, client, company_info)
-    
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
