@@ -32,6 +32,10 @@ Factura est une application SaaS permettant aux freelances, consultants et PME d
 - PostgreSQL 16 (ou SQLite pour le développement)
 
 ### 1. Cloner le dépôt
-```bash
+
 git clone https://github.com/votre-utilisateur/factura.git
+cd factura
+
+###2. 
+s://github.com/votre-utilisateur/factura.git
 cd factura
