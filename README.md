@@ -35,7 +35,5 @@ Factura est une application SaaS permettant aux freelances, consultants et PME d
 ```bash
 git clone https://github.com/votre-utilisateur/factura.git
 cd factura
-
-
 s://github.com/votre-utilisateur/factura.git
 cd factura
